@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+"""Python Challenge.
+
+Usage:
+  challenge <file> --outfile=<file> --format=<format> [--limit=<num>] [--filter=<rule> ...]
+  challenge (-h | --help)
+  challenge --version
+
+Options:
+  -h --help     Show this screen.
+  --version     Show version.
+  --outfile=<file>  Output filename.
+  --format=<format>  Format of output. (json | xml | csv).
+  --limit=<num>  Limit number of IPs processed.
+  --filter=<rule> Specify filter rule. See help for details.
+
+Filter Rules:
+  in_radius(lat,long,radius): only output records within <radius> miles of <lat,long>.
+  in_bbox(lat0,long0,lat1,long1): only output records within area bounded by <lat0,long0> at the upper right and <lat1,long1> at the bottom left.
+  geoip_field_match(field,pattern): only output records with GeoIP field <field> equal to <pattern>.
+  roles(role1,role2,...): only retrieve records with RDAP roles including role1, role2, ....
+  only_roles(role1,role2,...): only include role1, role2, ... in records.
+"""
+
+from docopt import docopt
+import process
+import rules
+from dicttoxml import dicttoxml
+from csv import DictWriter
+import simplejson as json
+from collections import OrderedDict
+from rdap import Entity
+from geoip import Geo
+
+if __name__ == '__main__':
+    arguments = docopt(__doc__, version='0.1.0')
+
+    if arguments['--format'] not in ['json','xml','csv']:
+      print('Error! Invalid format specified.')
+      exit(1)
+
+    records = process.process(arguments['<file>'],int(arguments['--limit']) if arguments['--limit'] else None)
+
+    ruleset = []
+    if arguments['--filter']:
+      ruleset.extend(arguments['--filter'])
+    records = rules.rules_applier(ruleset,records)
+
+    def convert_tuples(record):
+      record.geo = record.geo._asdict()
+      record.entities = [entity._asdict() for entity in record.entities]
+      return record
+
+    with open(arguments['--outfile'],'w') as outfile:
+      if arguments['--format'] == 'json':
+        output = {record.address: record.__dict__ for record in records}
+        json.dump(output,outfile)
+
+      elif arguments['--format'] == 'xml':
+        output = {record.address: convert_tuples(record).__dict__ for record in records}
+        outfile.write(dicttoxml(output).decode('utf-8'))
+
+      elif arguments['--format'] == 'csv':
+        entity_keys = list(Entity('','','','','','')._asdict().keys())
+        output = []
+        role_columns = []
+        columns = ['ip'] + list(Geo('','','','','','','','','','')._asdict().keys())
+        for record in records:
+          output_record = record.geo._asdict()
+          output_record['ip'] = record.address
+          for entity in record.entities:
+            roles=','.join(entity.roles)+': '
+            role_columns.append(roles)
+            entity_dict = entity._asdict()
+            for item in entity_dict:
+              output_record[roles+item] = entity_dict[item]
+          output.append(output_record)
+        for role in set(role_columns):
+          columns.extend([role+item for item in entity_keys])
+        writer = DictWriter(outfile, fieldnames=columns)
+        writer.writeheader()
+        for record in output:
+          writer.writerow(record)

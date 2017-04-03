@@ -41,6 +41,11 @@ def parse(entity):
             collected['email'] = item[3]
         elif item[0] == 'tel':
             collected['phone'] = item[3]
-    parsed = Entity(handle=collected['handle'], roles=collected['roles'], person=collected[
-                    'person'], email=collected['email'], address=collected['address'], phone=collected['phone'])
+    parsed = Entity(
+        handle=collected['handle'],
+        roles=collected['roles'],
+        person=collected['person'],
+        email=collected['email'],
+        address=collected['address'],
+        phone=collected['phone'])
     return parsed

@@ -1,8 +1,17 @@
 import requests
 from collections import namedtuple
 
-Geo = namedtuple('Geo', ['country_code', 'country_name', 'region_code', 'region_name',
-                         'city', 'zip_code', 'time_zone', 'latitude', 'longitude', 'metro_code'])
+Geo = namedtuple('Geo',
+                 ['country_code',
+                  'country_name',
+                  'region_code',
+                  'region_name',
+                  'city',
+                  'zip_code',
+                  'time_zone',
+                  'latitude',
+                  'longitude',
+                  'metro_code'])
 
 
 def geoip(ip):
